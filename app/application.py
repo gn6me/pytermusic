@@ -8,6 +8,10 @@ import curses
 import glob
 import mutagen
 from mutagen.mp3 import MP3
+from mutagen.id3 import ID3
+from io import BytesIO
+from PIL import Image
+from term_image.image import from_file
 import pygame
 import random
 
@@ -33,6 +37,7 @@ class MP3Player:
         self.songs.sort()
 
     def shuffle(self):
+        """Shuffle song list"""
         random.shuffle(self.songs)
         pygame.mixer.music.load(self.songs[self.current_song_index])
         pygame.mixer.music.play()
@@ -41,19 +46,15 @@ class MP3Player:
         if self.is_playing:
             self.song_position = pygame.mixer.music.get_pos() / 1000
             
-            # Check if song ended
-            if not pygame.mixer.music.get_busy() and self.is_playing:
-                self.stop()
-                self.current_song_index = (self.current_song_index + 1) % len(self.songs)
-                self.play()
-
     def addsong(self, song_index):
+        """Add selected song to queue"""
         if 0 <= song_index < len(self.songs):
             self.queue.append(song_index)
             return True
         return False
 
     def sort(self):
+        """Sort song list window"""
         self.songs.sort()
 
     def play(self):
@@ -61,16 +62,24 @@ class MP3Player:
         if not self.songs:
             return
         
+        # Unpause function
         if self.paused:
             pygame.mixer.music.unpause()
             self.paused = False
             self.is_playing = True
         else:
             pygame.mixer.music.load(self.songs[self.current_song_index])
-            self.songtitle = mutagen.File(self.songs[self.current_song_index], easy=True)
-            self.songartist = str(self.songtitle["artist"])[2:-2]
-            self.songtitle = str(self.songtitle["title"])[2:-2]
-            os.system(f'notify-send "󰎇 Now Playing:" "{self.songtitle} \n by {self.songartist}" -t 2000')
+
+            try:
+                # Grab song info for notification daemon
+                self.songtitle = mutagen.File(self.songs[self.current_song_index], easy=True)
+                self.songartist = str(self.songtitle["artist"])[2:-2]
+                self.songtitle = str(self.songtitle["title"])[2:-2]
+                os.system(f'notify-send "󰎇 Now Playing:" "{self.songtitle} \n by {self.songartist}" -t 2000')
+            except KeyError:
+                pass
+
+            # Play song
             pygame.mixer.music.play()
             self.song_length = MP3(self.songs[self.current_song_index]).info.length
                 
@@ -116,9 +125,17 @@ class MP3Player:
         if not self.songs:
             return "No songs available"
             
-        #return os.path.basename(self.songs[self.current_song_index])
         self.songtitle = mutagen.File(self.songs[self.current_song_index], easy=True)
+        
         return self.songtitle
+    
+    def get_default_current_song_info(self):
+        """Get current song info if there are no tags"""
+        self.songtitle = os.path.basename(self.songs[self.current_song_index])
+        self.songtitle = self.songtitle.strip(".mp3")
+        
+        return self.songtitle
+
         
     def update_position(self):
         """Update the current song position"""

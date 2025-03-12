@@ -8,6 +8,7 @@ import curses
 import glob
 import mutagen
 from mutagen.mp3 import MP3
+from mutagen.id3 import ID3
 import pygame
 import random
 
@@ -22,6 +23,14 @@ def main(stdscr):
     curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)  # Current song
     curses.init_pair(2, curses.COLOR_CYAN, curses.COLOR_BLACK)   # Playing status
     curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_BLACK) # Record
+    curses.init_pair(4, curses.COLOR_BLUE, curses.COLOR_BLACK)
+    curses.init_pair(5, curses.COLOR_RED, curses.COLOR_BLACK)
+
+    green = curses.color_pair(1)
+    cyan = curses.color_pair(2)
+    yellow = curses.color_pair(3)
+    blue = curses.color_pair(4)
+    red = curses.color_pair(5)
 
     stdscr.nodelay(1)
 
@@ -47,16 +56,16 @@ def main(stdscr):
     # Calculate window sizes and positions
     record_width = 48
     record_height = 26
-    info_height = height - 32
-    info_width = 80
+    info_height = height - 23
+    info_width = 60
     list_width = width - record_width - info_width
     queue_height = height - info_height
     
     # Create windows
-    record_win = curses.newwin(record_height, record_width, 2, 2)
-    info_win = curses.newwin(height - 32, info_width, 2, record_width + 4)
-    queue_win = curses.newwin(queue_height - 2, info_width, info_height + 2, record_width + 4)
-    list_win = curses.newwin(height - 4, list_width, 2, record_width + info_width + 6)
+    record_win = curses.newwin(record_height, record_width, 1, 2)
+    info_win = curses.newwin(info_height, info_width, 2, record_width + 4)
+    queue_win = curses.newwin(queue_height - 4, info_width + record_width + 2, info_height + 2, 2)
+    list_win = curses.newwin(height - 4, list_width - 8, 2, record_width + info_width + 6)
     
     # Current selected song in the list
     selected_index = 0
@@ -90,56 +99,75 @@ def main(stdscr):
         info_win.clear()
         info_win.box()
         info_win.addstr(0, 2, "Now Playing:", curses.A_BOLD)
-        
-        current_song = player.get_current_song_info()
-        #current_song = mutagen.File(player.songs[player.current_song_index], easy=True)
 
+        current_song = player.get_current_song_info()
         status = "PLAYING" if player.is_playing else "PAUSED" if player.paused else "STOPPED"
         
-        info_win.addstr(3, 2, f"Title: {str(current_song["title"])[2:-2]}", curses.color_pair(1))
-        info_win.addstr(4, 2, f"Ablum: {str(current_song["album"])[2:-2]}", curses.color_pair(1))
-        info_win.addstr(5, 2, f"Artist: {str(current_song["artist"])[2:-2]}", curses.color_pair(1))
-        info_win.addstr(7, 2, f"Status: {status}", curses.color_pair(2))
+        try:
+            current_song = player.get_current_song_info()
+            info_win.addstr(2, 2, f"{str(current_song["title"])[2:-2]}", curses.A_BOLD)
+            info_win.addstr(4, 2, f"Ablum: {str(current_song["album"])[2:-2]}", yellow)
+            info_win.addstr(5, 2, f"Artist: {str(current_song["artist"])[2:-2]}", yellow)
+        except KeyError:
+            current_song = player.get_default_current_song_info()
+            info_win.addstr(2, 2, f"{str(current_song)}", curses.A_BOLD)
+            info_win.addstr(4, 2, f"Ablum: N/A", yellow)
+            info_win.addstr(5, 2, f"Artist: N/A", yellow)
+
+        if player.is_playing:
+            info_win.addstr(7, 2, status, green)
+        elif player.paused:
+            info_win.addstr(7, 2, status, yellow)
+        else:
+            info_win.addstr(7, 2, status, red)
+ 
+ 
         
         # Show position/duration
         if player.is_playing or player.paused:
             position_str = f"{format_time(player.song_position)} / {format_time(player.song_length)}"
             info_win.addstr(9, 2, position_str)
+
             
-            # Progress bar
-            progress_width = info_width - 8
-            if player.song_length > 0:
-                progress = int((player.song_position / player.song_length) * progress_width)
-                progress_bar = "#" * progress + "-" * (progress_width - progress)
-                info_win.addstr(11, 2, f"[{progress_bar}]")
+        # Progress bar
+        progress_width = info_width - 8
+        if player.song_length > 0:
+            progress = int((player.song_position / player.song_length) * progress_width)
+            progress_bar = "#" * progress + "-" * (progress_width - progress)
+            info_win.addstr(11, 2, f"[{progress_bar}]")
 
         # Draw Queue
         queue_win.clear()
         queue_win.box()
         queue_win.addstr(0, 2, f"Queue ({len(player.queue)})", curses.A_BOLD)
 
+        if qselected_index >= qlist_offset + qmax_list_display:
+            qlist_offset = qselected_index - qmax_list_display + 1
+        elif qselected_index < qlist_offset:
+            qlist_offset = qselected_index
+
         for i in range(min(qmax_list_display, len(player.queue) - qlist_offset)):
-            if i >= len(player.queue):
-                break
             qidx = i + qlist_offset
-            qcurrent_idx = player.queue[i]
-            song_name = mutagen.File(player.songs[qcurrent_idx], easy=True)
-            song_name = str(song_name["title"])[2:-2]
+            qcurrent_idx = player.queue[qidx]
+
+            try:
+                song_name = mutagen.File(player.songs[qcurrent_idx], easy=True)
+                song_name = str(song_name["title"])[2:-2]
+            except KeyError:
+                song_name = os.path.basename(player.songs[qcurrent_idx])
+                song_name = song_name.strip(".mp3")
 
             if command_mode == False:
-                if qselected_index >= qlist_offset + qmax_list_display:
-                    qlist_offset = qselected_index - qmax_list_display + 1
-                elif qselected_index < qlist_offset:
-                    qlist_offset = qselected_index
+                
                 if qidx == player.current_song_index and qidx == qselected_index:
-                    queue_win.addstr(2 + i, 2, f"> {song_name}", curses.color_pair(1) | curses.A_BOLD)
+                    queue_win.addstr(i + 1, 2, f"> {song_name}", curses.color_pair(1) | curses.A_BOLD)
                 elif qidx == player.current_song_index:
-                    queue_win.addstr(2 + i, 2, f"* {song_name}", curses.color_pair(1))
+                    queue_win.addstr(i + 1, 2, f"* {song_name}", curses.color_pair(1))
                 elif qidx == qselected_index:
-                    queue_win.addstr(2 + i, 2, f"> {song_name}", curses.A_BOLD)
-                else: queue_win.addstr(2 + i, 2, f"{i+1}. {song_name}")
+                    queue_win.addstr(i + 1, 2, f"> {song_name}", curses.A_BOLD)
+                else: queue_win.addstr(i + 1, 2, f"{qidx+1}. {song_name}")
             else:
-                queue_win.addstr(2 + i, 2, f"{i+1}. {song_name}")
+                queue_win.addstr(i + 1, 2, f"{qidx+1}. {song_name}")
         
         # Draw song list
         list_win.clear()
@@ -155,8 +183,12 @@ def main(stdscr):
         # Display songs
         for i in range(min(max_list_display, len(player.songs) - list_offset)):
             idx = i + list_offset
-            song_name = mutagen.File(player.songs[idx], easy=True)
-            song_name = str(song_name["title"])[2:-2]
+            try:
+                song_name = mutagen.File(player.songs[idx], easy=True)
+                song_name = str(song_name["title"])[2:-2]
+            except KeyError:
+                song_name = os.path.basename(player.songs[idx])
+                song_name = song_name.strip(".mp3")
             
             if command_mode == True:
                 # Highlight if current song or selected
@@ -224,32 +256,39 @@ def main(stdscr):
                 player.sort()
             elif key == ord('a'):
                 player.addsong(selected_index)
+            elif key == ord('c'):
+                player.queue.clear()
             elif key == ord('i'):
                 command_mode = False
             elif key == ord('?'):
                 # Display help
-                help_win = curses.newwin(15, 50, height // 2 - 8, width // 2 - 25)
+                help_win = curses.newwin(20, 50, height // 2 - 8, width // 2 - 25)
                 help_win.clear()
                 help_win.box()
                 help_win.addstr(0, 20, "HELP", curses.A_BOLD)
                 
                 help_lines = [
-                    "j/k   - Move down/up",
-                    "g/G   - Go to first/last song",
+                    "j/k         - Move down/up",
+                    "g/G         - Go to first/last song",
                     "Enter/Space - Play selected",
-                    "p     - Pause/Resume",
-                    "s     - Stop playback",
-                    "n     - Next song",
-                    "b     - Previous song",
-                    "i     - Enter queue edit mode",
-                    "q     - Quit program",
-                    "?     - Show this help"
+                    "p           - Pause/Resume",
+                    "s           - Stop playback",
+                    "n           - Next song",
+                    "b           - Previous song",
+                    "shift + s   - Shuffle song list",
+                    "1           - Sort song list",
+                    "c           - Clear queue",
+                    "i           - Enter queue edit mode",
+                    " While in edit mode ",
+                    "r           - Remove selected song from queue",
+                    "q           - Quit program",
+                    "?           - Show this help"
                 ]
                 
                 for i, line in enumerate(help_lines):
                     help_win.addstr(i + 2, 2, line)
                     
-                help_win.addstr(13, 2, "Press any key to close")
+                help_win.addstr(17, 2, "Press any key to close")
                 help_win.refresh()
                 help_win.getch()
         else:  # queue edit mode
@@ -266,16 +305,17 @@ def main(stdscr):
                 player.play()
             elif key == ord('r'):
                 player.queue.pop(qselected_index)
-
+            elif key == ord('c'):
+                player.queue.clear()
 
 if __name__ == "__main__":
     try:
         curses.wrapper(main)
     except KeyboardInterrupt:
         pass
-    except:
-        print("\nTerminal is too small\n")
-        print("Try launching again in a larger window size\n")
+    #except:
+    #    print("\nTerminal is too small\n")
+    #    print("Try launching again in a larger window size\n")
     finally:
         # Clean up pygame
         pygame.mixer.quit()
