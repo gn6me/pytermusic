@@ -1,19 +1,8 @@
-
 import os
-import subprocess
-import fnmatch
-import time
-import threading
-import curses
 import glob
 import mutagen
 from mutagen.mp3 import MP3
-from mutagen.id3 import ID3
-from io import BytesIO
-from PIL import Image
-from term_image.image import from_file
 import pygame
-import random
 
 class MP3Player:
     def __init__(self, music_dir):
@@ -70,6 +59,7 @@ class MP3Player:
         else:
             pygame.mixer.music.load(self.songs[self.current_song_index])
 
+            # Only pass is song has mp3 tags
             try:
                 # Grab song info for notification daemon
                 self.songtitle = mutagen.File(self.songs[self.current_song_index], easy=True)
@@ -202,7 +192,8 @@ class MP3Player:
             "⡀⡀⡀⡀⡀⡀⡀⡀⠙⢿⣿⣿⣿⣿⣿⣿⣿⣀⣀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⠹⣿⣿⣿⣿⣿⠟⠁⡀⡀⡀⡀⡀⡀⡀",
             "⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⠙⠿⣿⣿⣿⡿⡀⡀⠈⠉⠐⠒⠂⡀⡀⠒⠒⡀⡀⡀⡀⡀⡀⠙⣿⠿⠋⠁⡀⡀⡀⡀⡀⡀⡀⡀⡀",
             "⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⠉⠻⠤⣀⣀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⣀⠤⠔⠊⠁⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀",
-            "⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⠈⠉⠑⠒⠒⠒⠂⠐⠒⠒⠒⠉⠁⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀"
+            "⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⠈⠉⠑⠒⠒⠒⠂⠐⠒⠒⠒⠉⠁⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀",
+            "..............................................."
         ])
         
         # Frame 3

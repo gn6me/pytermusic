@@ -1,14 +1,9 @@
 import os
 from app.application import MP3Player
-import subprocess
-import fnmatch
 import time
-import threading
 import curses
-import glob
 import mutagen
 from mutagen.mp3 import MP3
-from mutagen.id3 import ID3
 import pygame
 import random
 
@@ -20,9 +15,9 @@ def format_time(seconds):
 def main(stdscr):
     curses.curs_set(0)  # Hide cursor
     curses.start_color()
-    curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)  # Current song
-    curses.init_pair(2, curses.COLOR_CYAN, curses.COLOR_BLACK)   # Playing status
-    curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_BLACK) # Record
+    curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)
+    curses.init_pair(2, curses.COLOR_CYAN, curses.COLOR_BLACK)
+    curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_BLACK)
     curses.init_pair(4, curses.COLOR_BLUE, curses.COLOR_BLACK)
     curses.init_pair(5, curses.COLOR_RED, curses.COLOR_BLACK)
 
@@ -32,6 +27,7 @@ def main(stdscr):
     blue = curses.color_pair(4)
     red = curses.color_pair(5)
 
+    # Optimizations
     stdscr.nodelay(1)
 
     curses.cbreak
@@ -44,8 +40,6 @@ def main(stdscr):
     if hasattr(curses, 'use_default_colors'):
         curses.use_default_colors()
 
-
-    
     # Get music directory from environment or use default
     music_dir = os.environ.get("MUSIC_DIR", os.path.expanduser("~/Music"))
     player = MP3Player(music_dir)
@@ -103,6 +97,7 @@ def main(stdscr):
         current_song = player.get_current_song_info()
         status = "PLAYING" if player.is_playing else "PAUSED" if player.paused else "STOPPED"
         
+        # Exception if file does not have mp3 tags
         try:
             current_song = player.get_current_song_info()
             info_win.addstr(2, 2, f"{str(current_song["title"])[2:-2]}", curses.A_BOLD)
@@ -141,11 +136,13 @@ def main(stdscr):
         queue_win.box()
         queue_win.addstr(0, 2, f"Queue ({len(player.queue)})", curses.A_BOLD)
 
+        # Calculate queue display
         if qselected_index >= qlist_offset + qmax_list_display:
             qlist_offset = qselected_index - qmax_list_display + 1
         elif qselected_index < qlist_offset:
             qlist_offset = qselected_index
 
+        # Display queue
         for i in range(min(qmax_list_display, len(player.queue) - qlist_offset)):
             qidx = i + qlist_offset
             qcurrent_idx = player.queue[qidx]
@@ -157,8 +154,10 @@ def main(stdscr):
                 song_name = os.path.basename(player.songs[qcurrent_idx])
                 song_name = song_name.strip(".mp3")
 
+            # Allow selection in edit mode
             if command_mode == False:
                 
+                # Highlight queue song if selected
                 if qidx == player.current_song_index and qidx == qselected_index:
                     queue_win.addstr(i + 1, 2, f"> {song_name}", curses.color_pair(1) | curses.A_BOLD)
                 elif qidx == player.current_song_index:
@@ -313,9 +312,10 @@ if __name__ == "__main__":
         curses.wrapper(main)
     except KeyboardInterrupt:
         pass
-    #except:
-    #    print("\nTerminal is too small\n")
-    #    print("Try launching again in a larger window size\n")
+    # Display info for window size error
+    except curses.error as e:
+        print("\nTerminal is too small\n")
+        print("Try launching again in a larger window size\n")
     finally:
         # Clean up pygame
         pygame.mixer.quit()
