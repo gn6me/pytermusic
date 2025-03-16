@@ -14,6 +14,8 @@ def format_time(seconds):
 
 def main(stdscr):
     curses.curs_set(0)  # Hide cursor
+
+    # Color variables
     curses.start_color()
     curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)
     curses.init_pair(2, curses.COLOR_CYAN, curses.COLOR_BLACK)
@@ -51,7 +53,7 @@ def main(stdscr):
     record_width = 48
     record_height = 26
     info_height = height - 23
-    info_width = 60
+    info_width = 100
     list_width = width - record_width - info_width
     queue_height = height - info_height
     
@@ -63,12 +65,18 @@ def main(stdscr):
     
     # Current selected song in the list
     selected_index = 0
-    qselected_index = 0
     list_offset = 0
-    qlist_offset = 0
     max_list_display = height - 6
-    qmax_list_display = queue_height - 6
-    
+
+    # Current selected song in queue
+    q_selected_index = 0   
+    q_list_offset = 0
+    q_max_list_display = queue_height - 6
+
+    current_volume = player.current_volume
+    volume_up = player.volume_up()
+    volume_down = player.volume_down()
+
     # Input mode
     command_mode = True
     
@@ -116,14 +124,11 @@ def main(stdscr):
         else:
             info_win.addstr(7, 2, status, red)
  
- 
-        
         # Show position/duration
         if player.is_playing or player.paused:
             position_str = f"{format_time(player.song_position)} / {format_time(player.song_length)}"
             info_win.addstr(9, 2, position_str)
 
-            
         # Progress bar
         progress_width = info_width - 8
         if player.song_length > 0:
@@ -131,42 +136,8 @@ def main(stdscr):
             progress_bar = "#" * progress + "-" * (progress_width - progress)
             info_win.addstr(11, 2, f"[{progress_bar}]")
 
-        # Draw Queue
-        queue_win.clear()
-        queue_win.box()
-        queue_win.addstr(0, 2, f"Queue ({len(player.queue)})", curses.A_BOLD)
-
-        # Calculate queue display
-        if qselected_index >= qlist_offset + qmax_list_display:
-            qlist_offset = qselected_index - qmax_list_display + 1
-        elif qselected_index < qlist_offset:
-            qlist_offset = qselected_index
-
-        # Display queue
-        for i in range(min(qmax_list_display, len(player.queue) - qlist_offset)):
-            qidx = i + qlist_offset
-            qcurrent_idx = player.queue[qidx]
-
-            try:
-                song_name = mutagen.File(player.songs[qcurrent_idx], easy=True)
-                song_name = str(song_name["title"])[2:-2]
-            except KeyError:
-                song_name = os.path.basename(player.songs[qcurrent_idx])
-                song_name = song_name.strip(".mp3")
-
-            # Allow selection in edit mode
-            if command_mode == False:
-                
-                # Highlight queue song if selected
-                if qidx == player.current_song_index and qidx == qselected_index:
-                    queue_win.addstr(i + 1, 2, f"> {song_name}", curses.color_pair(1) | curses.A_BOLD)
-                elif qidx == player.current_song_index:
-                    queue_win.addstr(i + 1, 2, f"* {song_name}", curses.color_pair(1))
-                elif qidx == qselected_index:
-                    queue_win.addstr(i + 1, 2, f"> {song_name}", curses.A_BOLD)
-                else: queue_win.addstr(i + 1, 2, f"{qidx+1}. {song_name}")
-            else:
-                queue_win.addstr(i + 1, 2, f"{qidx+1}. {song_name}")
+        # Volume
+        info_win.addstr(13, 2, f"Volume: {current_volume}%", cyan)
         
         # Draw song list
         list_win.clear()
@@ -205,7 +176,44 @@ def main(stdscr):
         mode_text = "NORMAL" if command_mode else "INSERT"
         stdscr.addstr(height - 1, 0, f" {mode_text} ", curses.A_REVERSE)
 
+        # Draw Queue
+        queue_win.clear()
+        queue_win.box()
+        queue_win.addstr(0, 2, f"Queue ({len(player.queue)})", curses.A_BOLD)
+
+        # Calculate queue display
+        if q_selected_index >= q_list_offset + q_max_list_display:
+            q_list_offset = q_selected_index - q_max_list_display + 1
+        elif q_selected_index < q_list_offset:
+            q_list_offset = q_selected_index
+
+        # Display queue
+        for i in range(min(q_max_list_display, len(player.queue) - q_list_offset)):
+            q_idx = i + q_list_offset
+            q_current_idx = player.queue[q_idx]
+
+            try:
+                song_name = mutagen.File(player.songs[q_current_idx], easy=True)
+                song_name = str(song_name["title"])[2:-2]
+            except KeyError:
+                song_name = os.path.basename(player.songs[q_current_idx])
+                song_name = song_name.strip(".mp3")
+
+            # Allow selection in edit mode
+            if command_mode == False:
                 
+                # Highlight queue song if selected
+                if q_current_idx == player.current_song_index and q_idx == q_selected_index:
+                    queue_win.addstr(i + 1, 2, f"> {song-name}", curses.color_pair(1) | curses.A_BOLD)
+                elif q_current_idx == player.current_song_index:
+                    queue_win.addstr(i + 1, 2, f"* {song_name}", curses.color_pair(1))
+                elif q_idx == q_selected_index:
+                    queue_win.addstr(i + 1, 2, f"> {song_name}", curses.A_BOLD)
+                else: queue_win.addstr(i + 1, 2, f"{q_idx+1}. {song_name}")
+
+            else:
+                queue_win.addstr(i + 1, 2, f"{q_idx+1}. {song_name}")
+
         # Refresh windows
         stdscr.noutrefresh()
         record_win.noutrefresh()
@@ -245,6 +253,12 @@ def main(stdscr):
                 player.stop()
             elif key == ord('S'):
                 player.shuffle()
+            elif key == ord('l'):
+                player.volume_up()
+                current_volume = player.current_volume
+            elif key == ord('h'):
+                player.volume_down()
+                current_volume = player.current_volume
             elif key == ord('n'):
                 player.next_song()
                 selected_index = player.current_song_index
@@ -296,14 +310,14 @@ def main(stdscr):
             elif key == ord('q'):
                 running = False
             elif key == ord('j'):
-                qselected_index = min(qselected_index + 1, len(player.queue) - 1)
+                q_selected_index = min(q_selected_index + 1, len(player.queue) - 1)
             elif key == ord('k'):
-                qselected_index = max(qselected_index - 1, 0)
+                q_selected_index = max(q_selected_index - 1, 0)
             elif key == ord('\n') or key == ord(' '):
-                player.current_song_index = qselected_index
+                player.current_song_index = player.queue[q_selected_index]
                 player.play()
             elif key == ord('r'):
-                player.queue.pop(qselected_index)
+                player.queue.pop(q_selected_index)
             elif key == ord('c'):
                 player.queue.clear()
 

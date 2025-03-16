@@ -1,4 +1,5 @@
 import os
+import random
 import glob
 import mutagen
 from mutagen.mp3 import MP3
@@ -19,6 +20,9 @@ class MP3Player:
         self.current_frame = 0
         self.song_position = 0
         self.song_length = 0
+        self.volume = 0.5
+        pygame.mixer.music.set_volume(self.volume)
+        self.current_volume = str(int(self.volume * 100))
         
     def scan_songs(self):
         """Scan the music directory for MP3 files"""
@@ -126,7 +130,6 @@ class MP3Player:
         
         return self.songtitle
 
-        
     def update_position(self):
         """Update the current song position"""
         if self.is_playing:
@@ -135,6 +138,18 @@ class MP3Player:
             # Check if song ended
             if not pygame.mixer.music.get_busy() and self.is_playing:
                 self.next_song()
+
+    def volume_up(self):
+        if self.volume < 1.0:
+            self.volume += 0.05
+            pygame.mixer.music.set_volume(self.volume)
+            self.current_volume = str(int(self.volume * 100))
+
+    def volume_down(self):
+        if self.volume > 0.05:
+            self.volume -= 0.05
+            pygame.mixer.music.set_volume(self.volume)
+            self.current_volume = str(int(self.volume * 100))
                 
     def create_record_frames(self):
         """Create frames for the spinning record animation"""
