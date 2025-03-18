@@ -53,7 +53,7 @@ def main(stdscr):
     record_width = 48
     record_height = 26
     info_height = height - 23
-    info_width = 100
+    info_width = 60
     list_width = width - record_width - info_width
     queue_height = height - info_height
     
@@ -159,6 +159,7 @@ def main(stdscr):
             except KeyError:
                 song_name = os.path.basename(player.songs[idx])
                 song_name = song_name.strip(".mp3")
+                song_name = song_name[:45]
             
             if command_mode == True:
                 # Highlight if current song or selected
@@ -204,7 +205,7 @@ def main(stdscr):
                 
                 # Highlight queue song if selected
                 if q_current_idx == player.current_song_index and q_idx == q_selected_index:
-                    queue_win.addstr(i + 1, 2, f"> {song-name}", curses.color_pair(1) | curses.A_BOLD)
+                    queue_win.addstr(i + 1, 2, f"> {song_name}", curses.color_pair(1) | curses.A_BOLD)
                 elif q_current_idx == player.current_song_index:
                     queue_win.addstr(i + 1, 2, f"* {song_name}", curses.color_pair(1))
                 elif q_idx == q_selected_index:

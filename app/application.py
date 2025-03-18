@@ -130,6 +130,7 @@ class MP3Player:
         
         return self.songtitle
 
+        
     def update_position(self):
         """Update the current song position"""
         if self.is_playing:
@@ -138,6 +139,9 @@ class MP3Player:
             # Check if song ended
             if not pygame.mixer.music.get_busy() and self.is_playing:
                 self.next_song()
+
+    def get_volume(self):
+        return self.current_volume
 
     def volume_up(self):
         if self.volume < 1.0:
